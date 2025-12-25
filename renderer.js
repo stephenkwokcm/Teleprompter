@@ -2,11 +2,22 @@
 let currentSlide = 1;
 let slides = {}; // { slideNumber: { script: scriptText, title: titleText } }
 let isEditMode = false;
+let isQAMode = false;
 
 // Default settings
 let settings = {
   fontSize: 13,
   lineHeight: 1.5
+};
+
+// Q&A State
+let qaState = {
+  isListening: false,
+  transcription: '',
+  suggestions: [],
+  error: null,
+  language: 'en-US',
+  model: 'llama3.2:1b'
 };
 
 // DOM Elements
@@ -32,7 +43,15 @@ const elements = {
   fontSizeValue: document.getElementById('fontSizeValue'),
   lineHeightSlider: document.getElementById('lineHeightSlider'),
   lineHeightValue: document.getElementById('lineHeightValue'),
-  fontPreview: document.getElementById('fontPreview')
+  fontPreview: document.getElementById('fontPreview'),
+  // Q&A elements
+  qaBtn: document.getElementById('qaBtn'),
+  qaOverlay: document.getElementById('qaOverlay'),
+  qaCloseBtn: document.getElementById('qaCloseBtn'),
+  qaStatus: document.getElementById('qaStatus'),
+  qaListenBtn: document.getElementById('qaListenBtn'),
+  qaTranscriptionText: document.getElementById('qaTranscriptionText'),
+  qaSuggestions: document.getElementById('qaSuggestions')
 };
 
 // Initialize app
@@ -41,6 +60,9 @@ async function init() {
 
   // Load saved settings
   loadSettings();
+
+  // Load Q&A settings
+  await loadQASettings();
 
   // Load saved data
   try {
@@ -131,6 +153,30 @@ function setupEventListeners() {
 
   // Keyboard shortcuts
   document.addEventListener('keydown', handleKeyboard);
+
+  // Q&A Mode
+  elements.qaBtn.addEventListener('click', toggleQAMode);
+  elements.qaCloseBtn.addEventListener('click', closeQAMode);
+  elements.qaListenBtn.addEventListener('click', toggleListening);
+  elements.qaOverlay.addEventListener('click', (e) => {
+    if (e.target === elements.qaOverlay) {
+      closeQAMode();
+    }
+  });
+
+  // Setup transcription listener
+  window.electronAPI.onTranscriptionUpdate((update) => {
+    if (update.text) {
+      qaState.transcription = update.text;
+      elements.qaTranscriptionText.textContent = update.text;
+    }
+    if (update.isFinal && update.text) {
+      // Transcription complete, get suggestions
+      qaState.isListening = false;
+      updateQAListenButton();
+      getSuggestions(update.text);
+    }
+  });
 }
 
 // Navigate slides
@@ -330,6 +376,30 @@ function handleKeyboard(e) {
     return;
   }
 
+  // Q&A Mode keyboard shortcuts
+  if (isQAMode) {
+    switch(e.key) {
+      case 'Escape':
+        e.preventDefault();
+        closeQAMode();
+        return;
+
+      case 'l':
+      case 'L':
+        e.preventDefault();
+        toggleListening();
+        return;
+
+      case '1':
+      case '2':
+      case '3':
+        e.preventDefault();
+        selectSuggestion(parseInt(e.key) - 1);
+        return;
+    }
+    return;
+  }
+
   switch(e.key) {
     case 'ArrowLeft':
       e.preventDefault();
@@ -346,6 +416,12 @@ function handleKeyboard(e) {
     case 'E':
       e.preventDefault();
       toggleEditMode();
+      break;
+
+    case 'q':
+    case 'Q':
+      e.preventDefault();
+      toggleQAMode();
       break;
 
     case 'Escape':
@@ -425,6 +501,239 @@ function openSettings() {
 
 function closeSettings() {
   elements.settingsOverlay.classList.remove('active');
+}
+
+// ============================================
+// Q&A Mode Functions
+// ============================================
+
+async function loadQASettings() {
+  try {
+    const savedSettings = await window.electronAPI.qaGetSettings();
+    qaState.language = savedSettings.language || 'en-US';
+    qaState.model = savedSettings.model || 'llama3.2:1b';
+    console.log('✅ Q&A settings loaded:', qaState.language, qaState.model);
+  } catch (error) {
+    console.error('❌ Failed to load Q&A settings:', error);
+  }
+}
+
+async function saveQASettings() {
+  try {
+    await window.electronAPI.qaSaveSettings({
+      language: qaState.language,
+      model: qaState.model
+    });
+  } catch (error) {
+    console.error('❌ Failed to save Q&A settings:', error);
+  }
+}
+
+function toggleQAMode() {
+  if (isQAMode) {
+    closeQAMode();
+  } else {
+    openQAMode();
+  }
+}
+
+async function openQAMode() {
+  isQAMode = true;
+  elements.qaOverlay.classList.add('active');
+  elements.qaBtn.classList.add('active');
+
+  // Reset state
+  qaState.transcription = '';
+  qaState.suggestions = [];
+  qaState.error = null;
+  elements.qaTranscriptionText.textContent = '-';
+  elements.qaSuggestions.innerHTML = '';
+
+  // Check permissions
+  const permissions = await window.electronAPI.qaCheckPermissions();
+  if (!permissions.speech || !permissions.microphone) {
+    setQAStatus('Requesting permissions...', 'processing');
+    await window.electronAPI.qaRequestPermissions();
+    // User needs to grant permissions in system dialogs
+    setQAStatus('Please grant permissions in System Preferences', 'error');
+    return;
+  }
+
+  // Check Ollama status
+  const ollamaStatus = await window.electronAPI.qaCheckOllama();
+  if (!ollamaStatus.running) {
+    setQAStatus('Ollama not running. Start with: ollama serve', 'error');
+    return;
+  }
+
+  // Check if model is available
+  if (ollamaStatus.models.length === 0) {
+    setQAStatus('No models found. Pull a model: ollama pull llama3.2:1b', 'error');
+    return;
+  }
+
+  // Auto-select first available model if current not found
+  if (!ollamaStatus.models.includes(qaState.model)) {
+    qaState.model = ollamaStatus.models[0];
+    await saveQASettings();
+    console.log('📝 Auto-selected model:', qaState.model);
+  }
+
+  setQAStatus('Ready - Press Listen or L', '');
+}
+
+function closeQAMode() {
+  isQAMode = false;
+  elements.qaOverlay.classList.remove('active');
+  elements.qaBtn.classList.remove('active');
+
+  // Stop listening if active
+  if (qaState.isListening) {
+    window.electronAPI.qaStopListening();
+    qaState.isListening = false;
+  }
+}
+
+async function toggleListening() {
+  if (qaState.isListening) {
+    await stopListening();
+  } else {
+    await startListening();
+  }
+}
+
+async function startListening() {
+  // Check permissions first
+  const permissions = await window.electronAPI.qaCheckPermissions();
+  if (!permissions.speech || !permissions.microphone) {
+    setQAStatus('Permissions required. Check System Preferences.', 'error');
+    return;
+  }
+
+  // Clear previous state
+  qaState.transcription = '';
+  qaState.suggestions = [];
+  elements.qaTranscriptionText.textContent = 'Listening...';
+  elements.qaSuggestions.innerHTML = '';
+
+  // Start listening
+  const result = await window.electronAPI.qaStartListening(qaState.language);
+
+  if (result.error) {
+    setQAStatus(`Error: ${result.error}`, 'error');
+    return;
+  }
+
+  qaState.isListening = true;
+  updateQAListenButton();
+  setQAStatus('Listening... Speak your question', 'listening');
+}
+
+async function stopListening() {
+  await window.electronAPI.qaStopListening();
+  qaState.isListening = false;
+  updateQAListenButton();
+  setQAStatus('Processing...', 'processing');
+}
+
+function updateQAListenButton() {
+  if (qaState.isListening) {
+    elements.qaListenBtn.classList.add('listening');
+  } else {
+    elements.qaListenBtn.classList.remove('listening');
+  }
+}
+
+async function getSuggestions(question) {
+  if (!question || question.trim().length === 0) {
+    setQAStatus('No speech detected. Try again.', 'error');
+    return;
+  }
+
+  setQAStatus('Getting suggestions...', 'processing');
+  elements.qaSuggestions.innerHTML = '<div class="qa-loading">Thinking...</div>';
+
+  // Get current slide context
+  const slideData = slides[currentSlide] || {};
+  const context = slideData.title || '';
+
+  try {
+    const result = await window.electronAPI.qaGetSuggestions(question, context, qaState.model);
+
+    if (result.error) {
+      setQAStatus(`Error: ${result.error}`, 'error');
+      elements.qaSuggestions.innerHTML = '';
+      return;
+    }
+
+    if (result.suggestions && result.suggestions.length > 0) {
+      qaState.suggestions = result.suggestions;
+      displaySuggestions(result.suggestions);
+      setQAStatus('Select a response (1-3) or listen again', '');
+    } else {
+      setQAStatus('No suggestions received', 'error');
+      elements.qaSuggestions.innerHTML = '';
+    }
+  } catch (error) {
+    console.error('❌ Failed to get suggestions:', error);
+    setQAStatus(`Error: ${error.message}`, 'error');
+    elements.qaSuggestions.innerHTML = '';
+  }
+}
+
+function displaySuggestions(suggestions) {
+  elements.qaSuggestions.innerHTML = '';
+
+  suggestions.forEach((suggestion, index) => {
+    const card = document.createElement('div');
+    card.className = 'qa-suggestion-card';
+    card.innerHTML = `
+      <div class="suggestion-number">${index + 1}</div>
+      <div class="suggestion-text">${escapeHtml(suggestion)}</div>
+    `;
+    card.addEventListener('click', () => selectSuggestion(index));
+    elements.qaSuggestions.appendChild(card);
+  });
+}
+
+function selectSuggestion(index) {
+  if (index < 0 || index >= qaState.suggestions.length) {
+    return;
+  }
+
+  const suggestion = qaState.suggestions[index];
+
+  // Copy to clipboard
+  navigator.clipboard.writeText(suggestion).then(() => {
+    setQAStatus('Copied to clipboard!', '');
+    // Briefly highlight the selected card
+    const cards = elements.qaSuggestions.querySelectorAll('.qa-suggestion-card');
+    if (cards[index]) {
+      cards[index].style.borderColor = '#4caf50';
+      cards[index].style.background = 'rgba(76, 175, 80, 0.2)';
+      setTimeout(() => {
+        cards[index].style.borderColor = '';
+        cards[index].style.background = '';
+      }, 500);
+    }
+  }).catch(err => {
+    console.error('❌ Failed to copy:', err);
+    setQAStatus('Failed to copy', 'error');
+  });
+}
+
+function setQAStatus(message, statusClass) {
+  elements.qaStatus.textContent = message;
+  elements.qaStatus.className = 'qa-status';
+  if (statusClass) {
+    elements.qaStatus.classList.add(statusClass);
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // Initialize when DOM is ready
