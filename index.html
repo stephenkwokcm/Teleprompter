@@ -461,6 +461,257 @@
         color: white;
         border: 1px solid rgba(255, 255, 255, 0.1);
       }
+
+      /* Q&A Overlay Styles */
+      .qa-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        -webkit-app-region: no-drag;
+      }
+
+      .qa-overlay.active {
+        display: flex;
+      }
+
+      .qa-panel {
+        background: rgba(20, 20, 20, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        padding: 20px;
+        width: 360px;
+        max-height: 460px;
+        overflow-y: auto;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      }
+
+      .qa-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .qa-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: white;
+      }
+
+      .qa-close-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        border: none;
+        color: white;
+        font-size: 18px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+      }
+
+      .qa-close-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      .qa-status {
+        text-align: center;
+        font-size: 12px;
+        color: #888;
+        margin-bottom: 16px;
+        padding: 6px 12px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 4px;
+      }
+
+      .qa-status.listening {
+        color: #4caf50;
+        background: rgba(76, 175, 80, 0.1);
+      }
+
+      .qa-status.processing {
+        color: #ff9800;
+        background: rgba(255, 152, 0, 0.1);
+      }
+
+      .qa-status.error {
+        color: #f44336;
+        background: rgba(244, 67, 54, 0.1);
+      }
+
+      .qa-listen-section {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+      }
+
+      .qa-listen-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        border-radius: 24px;
+        border: none;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .qa-listen-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      .qa-listen-btn.listening {
+        background: #4caf50;
+        animation: pulse 1.5s infinite;
+      }
+
+      .qa-listen-btn.listening .listen-text {
+        display: none;
+      }
+
+      .qa-listen-btn.listening::after {
+        content: 'Stop';
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+      }
+
+      .listen-icon {
+        font-size: 18px;
+      }
+
+      .qa-transcription {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 16px;
+      }
+
+      .transcription-label {
+        font-size: 11px;
+        color: #888;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .transcription-text {
+        font-size: 14px;
+        color: white;
+        line-height: 1.4;
+        min-height: 20px;
+      }
+
+      .qa-suggestions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .qa-suggestion-card {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+      }
+
+      .qa-suggestion-card:hover {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(76, 175, 80, 0.5);
+      }
+
+      .qa-suggestion-card:active {
+        transform: scale(0.98);
+      }
+
+      .suggestion-number {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        width: 20px;
+        height: 20px;
+        background: rgba(76, 175, 80, 0.3);
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        color: #4caf50;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .suggestion-text {
+        font-size: 13px;
+        color: white;
+        line-height: 1.4;
+        padding-left: 28px;
+      }
+
+      .qa-footer {
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .qa-shortcuts {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        font-size: 11px;
+        color: #666;
+      }
+
+      .qa-shortcuts .key {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: monospace;
+        font-size: 10px;
+        margin-right: 4px;
+      }
+
+      .qa-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        color: #888;
+        font-size: 13px;
+      }
+
+      .qa-loading::before {
+        content: '';
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        border-top-color: #4caf50;
+        border-radius: 50%;
+        margin-right: 10px;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
     </style>
   </head>
   <body>
@@ -469,6 +720,7 @@
       <div class="header">
         <div class="title">TELEPROMPTER</div>
         <div class="controls">
+          <button class="btn" id="qaBtn" title="Voice Q&A (Q)">🎤</button>
           <button class="btn" id="settingsBtn" title="Settings">⚙</button>
           <button class="btn" id="editBtn" title="Edit script">✎</button>
           <button class="close-btn" id="closeBtn"></button>
@@ -582,6 +834,42 @@
 
         <div class="settings-actions">
           <button class="settings-close-btn" id="settingsCloseBtn">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q&A Overlay -->
+    <div class="qa-overlay" id="qaOverlay">
+      <div class="qa-panel">
+        <div class="qa-header">
+          <div class="qa-title">Voice Q&A</div>
+          <button class="qa-close-btn" id="qaCloseBtn">×</button>
+        </div>
+
+        <div class="qa-status" id="qaStatus">Ready</div>
+
+        <div class="qa-listen-section">
+          <button class="qa-listen-btn" id="qaListenBtn">
+            <span class="listen-icon">🎤</span>
+            <span class="listen-text">Listen</span>
+          </button>
+        </div>
+
+        <div class="qa-transcription" id="qaTranscription">
+          <div class="transcription-label">Question:</div>
+          <div class="transcription-text" id="qaTranscriptionText">-</div>
+        </div>
+
+        <div class="qa-suggestions" id="qaSuggestions">
+          <!-- Suggestion cards inserted dynamically -->
+        </div>
+
+        <div class="qa-footer">
+          <div class="qa-shortcuts">
+            <span class="key">L</span> Listen
+            <span class="key">1-3</span> Select
+            <span class="key">Esc</span> Close
+          </div>
         </div>
       </div>
     </div>
